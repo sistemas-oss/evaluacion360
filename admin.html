@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin · Reportes 360°</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f4f9; color: #333; margin: 0; padding: 20px; }
+  .container { max-width: 1000px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+  h1 { font-family: Georgia, serif; color: #1A0D2E; }
+  .login-box { display: flex; flex-direction: column; gap: 10px; max-width: 300px; margin-bottom: 20px; }
+  input, select, button { padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; }
+  button { background: #674393; color: white; cursor: pointer; border: none; font-weight: bold; transition: opacity 0.2s; }
+  button:hover { opacity: 0.85; }
+  
+  .controls-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
+  .btn-green { background: #2E7D32; }
+  .btn-blue { background: #1A2B4C; }
+  
+  /* ESTILOS DE LA TABLA */
+  #table-container { padding: 10px; background: #fff; border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { border: 1px solid #b3ccff; padding: 12px; text-align: center; }
+  th { background: #1A2B4C; color: #fff; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; }
+  .text-left { text-align: left; font-weight: 500; background: #f9fbff; }
+  .bg-orange { background: #ffe6cc; font-weight: bold; color: #b35900; }
+  .bg-green { background: #e6ffed; font-weight: bold; color: #006622; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Panel Admin · Resultados VITALES</h1>
+  
+  <div id="login-section" class="login-box">
+    <p>Inicia sesión como administrador:</p>
+    <input type="email" id="admin-email" placeholder="Correo admin">
+    <input type="password" id="admin-pass" placeholder="Contraseña">
+    <button onclick="loginAdmin()">Ingresar</button>
+  </div>
+
+  <div id="dashboard-section" style="display: none;">
+    <div class="controls-row">
+      <select id="user-select" style="flex: 1; min-width: 250px;">
+        <option value="">Cargando usuarios...</option>
+      </select>
+      <button onclick="generarReporte()">Generar Tabla Web</button>
+      <button id="btn-img" class="btn-green" style="display:none;" onclick="descargarImagen()">Descargar Imagen</button>
+    </div>
+
+    <div style="border-top: 1px solid #ccc; padding-top: 15px; margin-bottom: 20px;">
+      <p style="margin-top:0; font-size: 13px; color: #555;">Acción global (procesa toda la base de datos):</p>
+      <button class="btn-blue" onclick="exportarExcelTodos()">📊 Exportar TODOS a Excel</button>
+    </div>
+
+    <div id="table-container"></div>
+  </div>
+</div>
+
+<script>
+// --- CONFIGURACIÓN SUPABASE ---
+const SUPABASE_URL = 'https://ewnhhsqgoqwpvlzbvrib.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3bmhoc3Fnb3F3cHZsemJ2cmliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMzEyNDcsImV4cCI6MjA5NjYwNzI0N30.LASROoeVef99tsEwL0_SmigtqBgaZrU67ZIuRxl1bEI';
+
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// --- PREGUNTAS (Para reconstruir índices) ---
+const TODAS_LAS_PREGUNTAS = [
+  {c:'V', fuente:'TODOS'}, {c:'V', fuente:'TODOS'}, {c:'V', fuente:'JEFE'}, {c:'V', fuente:'JEFE'},
+  {c:'I', fuente:'TODOS'}, {c:'I', fuente:'TODOS'}, {c:'I', fuente:'PARES / LIDERADOS'}, {c:'I', fuente:'LIDERADOS'},
+  {c:'T', fuente:'TODOS'}, {c:'T', fuente:'JEFE / PARES'}, {c:'T', fuente:'JEFE / PARES'}, {c:'T', fuente:'LIDERADOS'},
+  {c:'A', fuente:'TODOS'}, {c:'A', fuente:'PARES / LIDERADOS'}, {c:'A', fuente:'PARES / LIDERADOS'}, {c:'A', fuente:'LIDERADOS'},
+  {c:'L', fuente:'JEFE'}, {c:'L', fuente:'JEFE'}, {c:'L', fuente:'JEFE / LIDERADOS'}, {c:'L', fuente:'LIDERADOS'},
+  {c:'E', fuente:'LIDERADOS'}, {c:'E', fuente:'LIDERADOS'}, {c:'E', fuente:'LIDERADOS'}, {c:'E', fuente:'LIDERADOS'},
+  {c:'E', fuente:'PARES / JEFE'}, {c:'E', fuente:'PARES / JEFE'}, {c:'E', fuente:'PARES / JEFE'}, {c:'E', fuente:'PARES / JEFE'},
+  {c:'S', fuente:'TODOS'}, {c:'S', fuente:'TODOS'}, {c:'S', fuente:'JEFE / PARES'}, {c:'S', fuente:'JEFE / PARES'}
+];
+
+const COMPETENCIAS = [
+  {id: 'V', name: 'V · Valores'}, {id: 'I', name: 'I · Inspiración'}, {id: 'T', name: 'T · Transformación'},
+  {id: 'A', name: 'A · Asertividad'}, {id: 'L', name: 'L · Logro'}, {id: 'E', name: 'E · Empoderamiento'},
+  {id: 'S', name: 'S · Sistémico + Saber Colectivo'}
+];
+
+// --- MATRIZ DE PESOS PONDERADOS ---
+const PESOS = {
+  V: { Jefe: 0.40, Par: 0.15, Liderado: 0.25, Auto: 0.20 },
+  I: { Jefe: 0.20, Par: 0.30, Liderado: 0.35, Auto: 0.15 },
+  T: { Jefe: 0.35, Par: 0.30, Liderado: 0.20, Auto: 0.15 },
+  A: { Jefe: 0.15, Par: 0.35, Liderado: 0.35, Auto: 0.15 },
+  L: { Jefe: 0.45, Par: 0.10, Liderado: 0.30, Auto: 0.15 },
+  E_Jerarquico: { Jefe: 0.10, Par: 0.00, Liderado: 0.75, Auto: 0.15 },
+  E_Transversal: { Jefe: 0.20, Par: 0.55, Liderado: 0.00, Auto: 0.25 },
+  S: { Jefe: 0.30, Par: 0.35, Liderado: 0.20, Auto: 0.15 }
+};
+
+let listaEmpleadosGlobal = [];
+
+async function loginAdmin() {
+  const email = document.getElementById('admin-email').value;
+  const pass = document.getElementById('admin-pass').value;
+  const { error } = await _supabase.auth.signInWithPassword({ email, password: pass });
+  
+  if(!error) {
+    document.getElementById('login-section').style.display = 'none';
+    document.getElementById('dashboard-section').style.display = 'block';
+    cargarUsuarios();
+  } else {
+    alert("Credenciales incorrectas");
+  }
+}
+
+async function cargarUsuarios() {
+  const { data, error } = await _supabase.from('detalles_empleados').select('*');
+  if (data) {
+    listaEmpleadosGlobal = data; // Lo guardamos para el Excel global
+    const select = document.getElementById('user-select');
+    select.innerHTML = '<option value="">-- Selecciona a quién evaluar --</option>';
+    data.forEach(u => {
+      if(u.id_auto_evaluado) select.innerHTML += `<option value="${u.id_auto_evaluado}">${u.evaluado}</option>`;
+    });
+  }
+}
+
+function filtrarPreguntasPorRol(tipoEvaluado) {
+  const tipo = tipoEvaluado.toUpperCase();
+  return TODAS_LAS_PREGUNTAS.filter(p => {
+    const fuente = p.fuente.toUpperCase();
+    if (fuente === 'TODOS' || tipo === 'AUTO') return true;
+    if (tipo === 'LIDERADO' && (fuente === 'LIDERADOS' || fuente === 'PARES / LIDERADOS' || fuente === 'JEFE / LIDERADOS')) return true;
+    if (tipo === 'JEFE' && (fuente === 'JEFE' || fuente === 'JEFE / PARES')) return true;
+    if (tipo === 'PAR' && (fuente === 'PARES / LIDERADOS' || fuente === 'JEFE / PARES')) return true;
+    return false;
+  });
+}
+
+function calcPromedio(arr) {
+  if (!arr || arr.length === 0) return null;
+  return arr.reduce((a, b) => a + b, 0) / arr.length;
+}
+
+function calcularPonderado(j, p, l, a, pesosAplicados) {
+  let suma = 0;
+  let pesoTotalValido = 0;
+  if (j !== null) { suma += j * pesosAplicados.Jefe; pesoTotalValido += pesosAplicados.Jefe; }
+  if (p !== null) { suma += p * pesosAplicados.Par; pesoTotalValido += pesosAplicados.Par; }
+  if (l !== null) { suma += l * pesosAplicados.Liderado; pesoTotalValido += pesosAplicados.Liderado; }
+  if (a !== null) { suma += a * pesosAplicados.Auto; pesoTotalValido += pesosAplicados.Auto; }
+  return pesoTotalValido > 0 ? (suma / pesoTotalValido) : null;
+}
+
+// --- 1. LÓGICA DE TABLA INDIVIDUAL ---
+async function generarReporte() {
+  const evaluadoId = document.getElementById('user-select').value;
+  if (!evaluadoId) return alert("Selecciona un usuario");
+
+  const { data, error } = await _supabase.from('progreso_valoraciones')
+    .select('*').eq('evaluado_id', evaluadoId).eq('estado', 'done');
+
+  if(error) return alert("Error al cargar datos");
+
+  const scores = procesarDatosPuntuacion(data);
+  dibujarTabla(scores.scores, scores.tieneLiderados);
+  document.getElementById('btn-img').style.display = 'inline-block';
+}
+
+function procesarDatosPuntuacion(dataProgresos) {
+  const scores = { Jefe: {}, Par: {}, Liderado: {}, Auto: {} };
+  COMPETENCIAS.forEach(c => {
+    scores.Jefe[c.id] = []; scores.Par[c.id] = []; scores.Liderado[c.id] = []; scores.Auto[c.id] = [];
+  });
+
+  let tieneLiderados = false;
+  dataProgresos.forEach(row => {
+    const rol = row.tipo_evaluado;
+    if (rol === 'Liderado') tieneLiderados = true;
+
+    const qs = filtrarPreguntasPorRol(rol);
+    const respuestas = row.respuestas || {};
+
+    Object.keys(respuestas).forEach(idx => {
+      const nota = respuestas[idx].score;
+      if (nota && nota !== 'na') {
+        const competencia = qs[idx].c;
+        scores[rol][competencia].push(Number(nota));
+      }
+    });
+  });
+
+  return { scores, tieneLiderados };
+}
+
+function dibujarTabla(scores, tieneLiderados) {
+  let html = `<table>
+    <thead>
+      <tr>
+        <th>Competencia Vital</th>
+        <th>Auto</th>
+        <th>Jefe</th>
+        <th>Pares</th>
+        <th>Liderados</th>
+        <th class="bg-green">Nota Final</th>
+        <th class="bg-orange">Brecha Máx</th>
+      </tr>
+    </thead>
+    <tbody>`;
+
+  let sumCol = { Auto:0, Jefe:0, Par:0, Liderado:0, Final:0 };
+  let countCol = { Auto:0, Jefe:0, Par:0, Liderado:0, Final:0 };
+
+  COMPETENCIAS.forEach(comp => {
+    const avgA = calcPromedio(scores.Auto[comp.id]);
+    const avgJ = calcPromedio(scores.Jefe[comp.id]);
+    const avgP = calcPromedio(scores.Par[comp.id]);
+    const avgL = calcPromedio(scores.Liderado[comp.id]);
+
+    let pesosComp = PESOS[comp.id];
+    if (comp.id === 'E') pesosComp = tieneLiderados ? PESOS.E_Jerarquico : PESOS.E_Transversal;
+
+    const finalScore = calcularPonderado(avgJ, avgP, avgL, avgA, pesosComp);
+    const validScores = [avgA, avgJ, avgP, avgL].filter(x => x !== null);
+    const brecha = validScores.length > 0 ? (Math.max(...validScores) - Math.min(...validScores)) : null;
+
+    if(avgA !== null) { sumCol.Auto += avgA; countCol.Auto++; }
+    if(avgJ !== null) { sumCol.Jefe += avgJ; countCol.Jefe++; }
+    if(avgP !== null) { sumCol.Par += avgP; countCol.Par++; }
+    if(avgL !== null) { sumCol.Liderado += avgL; countCol.Liderado++; }
+    if(finalScore !== null) { sumCol.Final += finalScore; countCol.Final++; }
+
+    html += `<tr>
+      <td class="text-left">${comp.name}</td>
+      <td>${avgA !== null ? avgA.toFixed(1) : '-'}</td>
+      <td>${avgJ !== null ? avgJ.toFixed(1) : '-'}</td>
+      <td>${avgP !== null ? avgP.toFixed(1) : '-'}</td>
+      <td>${avgL !== null ? avgL.toFixed(1) : '-'}</td>
+      <td class="bg-green">${finalScore !== null ? finalScore.toFixed(2) : '-'}</td>
+      <td class="bg-orange">${brecha !== null ? brecha.toFixed(1) : '-'}</td>
+    </tr>`;
+  });
+
+  html += `<tr>
+    <td class="text-left" style="font-weight:bold;">PROMEDIO PONDERADO</td>
+    <td style="font-weight:bold;">${countCol.Auto > 0 ? (sumCol.Auto/countCol.Auto).toFixed(1) : '-'}</td>
+    <td style="font-weight:bold;">${countCol.Jefe > 0 ? (sumCol.Jefe/countCol.Jefe).toFixed(1) : '-'}</td>
+    <td style="font-weight:bold;">${countCol.Par > 0 ? (sumCol.Par/countCol.Par).toFixed(1) : '-'}</td>
+    <td style="font-weight:bold;">${countCol.Liderado > 0 ? (sumCol.Liderado/countCol.Liderado).toFixed(1) : '-'}</td>
+    <td class="bg-green" style="font-weight:bold; font-size:16px;">${countCol.Final > 0 ? (sumCol.Final/countCol.Final).toFixed(2) : '-'}</td>
+    <td class="bg-orange">-</td>
+  </tr>
+  </tbody></table>`;
+
+  document.getElementById('table-container').innerHTML = html;
+}
+
+// --- 2. LÓGICA DE DESCARGAR IMAGEN ---
+function descargarImagen() {
+  const container = document.getElementById('table-container');
+  const userSelect = document.getElementById('user-select');
+  const nombreEvaluado = userSelect.options[userSelect.selectedIndex].text;
+  
+  html2canvas(container, { backgroundColor: "#ffffff", scale: 2 }).then(canvas => {
+    const link = document.createElement('a');
+    link.download = `Resultados_360_${nombreEvaluado.replace(/\s+/g, '_')}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  });
+}
+
+// --- 3. LÓGICA DE EXPORTAR EXCEL (TODOS LOS USUARIOS) ---
+async function exportarExcelTodos() {
+  alert("Generando Excel, esto puede tomar unos segundos...");
+
+  // Obtenemos todos los progresos en estado 'done' de toda la tabla
+  const { data: progresosGlobales, error: errProg } = await _supabase.from('progreso_valoraciones').select('*').eq('estado', 'done');
+  if (errProg || !progresosGlobales) return alert("Error cargando valoraciones");
+
+  let excelData = [];
+
+  // Recorremos la lista de empleados uno por uno
+  listaEmpleadosGlobal.forEach(emp => {
+    if (!emp.id_auto_evaluado) return;
+
+    const evalId = emp.id_auto_evaluado;
+    const nombre = emp.evaluado || 'Desconocido';
+
+    // Filtramos las respuestas que solo pertenecen a este empleado
+    const userProgs = progresosGlobales.filter(p => p.evaluado_id === evalId);
+    if (userProgs.length === 0) return; // Si nadie lo evaluó aún, lo saltamos.
+
+    // Reutilizamos la función de proceso
+    const datosProcesados = procesarDatosPuntuacion(userProgs);
+    const scores = datosProcesados.scores;
+    const tieneLiderados = datosProcesados.tieneLiderados;
+
+    let sumCol = { Auto:0, Jefe:0, Par:0, Liderado:0, Final:0 };
+    let countCol = { Auto:0, Jefe:0, Par:0, Liderado:0, Final:0 };
+
+    COMPETENCIAS.forEach(comp => {
+      const avgA = calcPromedio(scores.Auto[comp.id]);
+      const avgJ = calcPromedio(scores.Jefe[comp.id]);
+      const avgP = calcPromedio(scores.Par[comp.id]);
+      const avgL = calcPromedio(scores.Liderado[comp.id]);
+
+      let pesosComp = PESOS[comp.id];
+      if (comp.id === 'E') pesosComp = tieneLiderados ? PESOS.E_Jerarquico : PESOS.E_Transversal;
+
+      const finalScore = calcularPonderado(avgJ, avgP, avgL, avgA, pesosComp);
+      const validScores = [avgA, avgJ, avgP, avgL].filter(x => x !== null);
+      const brecha = validScores.length > 0 ? (Math.max(...validScores) - Math.min(...validScores)) : null;
+
+      if(avgA !== null) { sumCol.Auto += avgA; countCol.Auto++; }
+      if(avgJ !== null) { sumCol.Jefe += avgJ; countCol.Jefe++; }
+      if(avgP !== null) { sumCol.Par += avgP; countCol.Par++; }
+      if(avgL !== null) { sumCol.Liderado += avgL; countCol.Liderado++; }
+      if(finalScore !== null) { sumCol.Final += finalScore; countCol.Final++; }
+
+      // Agregamos la fila al Excel
+      excelData.push({
+        "ID_Evaluado": evalId,
+        "Evaluado": nombre,
+        "Cargo": emp.cargo_evaluado || '-',
+        "Tribu": emp.tribu_evaluado || '-',
+        "Competencia Vital": comp.name,
+        "Auto": avgA !== null ? Number(avgA.toFixed(2)) : null,
+        "Jefe": avgJ !== null ? Number(avgJ.toFixed(2)) : null,
+        "Pares": avgP !== null ? Number(avgP.toFixed(2)) : null,
+        "Liderados": avgL !== null ? Number(avgL.toFixed(2)) : null,
+        "Nota Final (Ponderada)": finalScore !== null ? Number(finalScore.toFixed(2)) : null,
+        "Brecha Máxima": brecha !== null ? Number(brecha.toFixed(2)) : null
+      });
+    });
+
+    // Fila resumen de la persona
+    excelData.push({
+        "ID_Evaluado": evalId,
+        "Evaluado": nombre,
+        "Cargo": emp.cargo_evaluado || '-',
+        "Tribu": emp.tribu_evaluado || '-',
+        "Competencia Vital": "PROMEDIO PONDERADO",
+        "Auto": countCol.Auto > 0 ? Number((sumCol.Auto/countCol.Auto).toFixed(2)) : null,
+        "Jefe": countCol.Jefe > 0 ? Number((sumCol.Jefe/countCol.Jefe).toFixed(2)) : null,
+        "Pares": countCol.Par > 0 ? Number((sumCol.Par/countCol.Par).toFixed(2)) : null,
+        "Liderados": countCol.Liderado > 0 ? Number((sumCol.Liderado/countCol.Liderado).toFixed(2)) : null,
+        "Nota Final (Ponderada)": countCol.Final > 0 ? Number((sumCol.Final/countCol.Final).toFixed(2)) : null,
+        "Brecha Máxima": null
+    });
+    
+    // Fila vacía para separar visualmente a las personas en el Excel
+    excelData.push({});
+  });
+
+  if(excelData.length === 0) return alert("No hay suficientes evaluaciones finalizadas para exportar.");
+
+  // Generamos y descargamos el archivo
+  const worksheet = XLSX.utils.json_to_sheet(excelData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Base General 360");
+  XLSX.writeFile(workbook, "Reporte_General_Lideres_Vitales.xlsx");
+}
+</script>
+</body>
+</html>
