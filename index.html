@@ -510,6 +510,7 @@ const TODAS_LAS_PREGUNTAS = [
 // --- ESTADO GLOBAL DINÁMICO ---
 let QS_ACTUAL = [];
 let miIdReal = null; // Guardará el ID real del usuario para la autovaloración
+let miTipoUsuario = null;
 
 let state = {
   ev: null, q: 0, score: null,
@@ -575,7 +576,7 @@ async function cargarEvaluados() {
   // Obtener mi propio ID
   const { data: myData, error: myError } = await _supabase
     .from('detalles_empleados')
-    .select('id_auto_evaluado')
+    .select('id_auto_evaluado, tipo_usuario') // <-- Agregamos tipo_usuario
     .eq('id_auth', currentUser.id)
     .single();
 
@@ -589,6 +590,7 @@ async function cargarEvaluados() {
   }
 
   miIdReal = myData.id_auto_evaluado; 
+  miTipoUsuario = myData.tipo_usuario; // <-- Guardamos el tipo de usuario
   console.log("2. Mi ID Real encontrado:", miIdReal);
   
   let nuevosEvals = [];
@@ -734,18 +736,34 @@ function calcTimes() {
   const map = {};
   state.evals.forEach(e => { if(!map[e.tipo]) map[e.tipo]={n:0,m:e.mins}; map[e.tipo].n++; });
   let tot=0, html='';
+  
+  // 1. Calcular tiempos de las personas asignadas a evaluar
   ['Jefe','Par','Liderado'].forEach(t => {
     if(map[t]) {
       tot += map[t].n*map[t].m;
       html += `<div class="tc-row"><span class="tc-lbl">${map[t].n} ${t}${map[t].n>1?'s':''}</span><span class="tc-val">${map[t].m}–${map[t].m+5} min c/u</span></div>`;
     }
   });
-  // Sumar 35 mins de la autovaloración
-  tot += 35; 
-  html += `<div class="tc-row"><span class="tc-lbl">1 Autovaloración</span><span class="tc-val">35-45 min</span></div>`;
+  
+  // 2. MODIFICACIÓN: Sumar y mostrar la autovaloración SOLAMENTE si el usuario es Jefe
+  if (miTipoUsuario && miTipoUsuario.toLowerCase() === 'jefe') {
+    tot += 35; 
+    html += `<div class="tc-row"><span class="tc-lbl">1 Autovaloración</span><span class="tc-val">35-45 min</span></div>`;
+  }
   
   document.getElementById('tc-rows').innerHTML = html;
-  document.getElementById('tc-total').textContent = `${tot}–${tot+15} min`;
+
+  // 3. Calcular el tiempo máximo de forma dinámica para que el rango sea exacto
+  let maxTot = 0;
+  ['Jefe','Par','Liderado'].forEach(t => {
+    if(map[t]) maxTot += map[t].n * (map[t].m + 5);
+  });
+  if (miTipoUsuario && miTipoUsuario.toLowerCase() === 'jefe') {
+    maxTot += 45;
+  }
+  
+  // Mostrar el total ajustado (ej. "50–65 min" para jefes o "15–20 min" si es un par/liderado con 1 asignado)
+  document.getElementById('tc-total').textContent = `${tot}–${maxTot} min`;
 }
 
 function renderList() {
@@ -778,23 +796,27 @@ function renderList() {
     });
   });
   
-  // Tarjeta de Autovaloración
-  html+=`<div class="gl">Autovaloración</div>`;
-  const isAutoDone = state.autoStatus === 'done';
-  const isAutoP = state.autoStatus === 'inprog';
-  
-  if(allDone || isAutoDone || isAutoP) {
-    const badge = isAutoDone ? `<span class="bx bxd">Completada</span>` : isAutoP ? `<span class="bx bxi">En progreso</span>` : `<span class="bx bxp">Disponible</span>`;
-    const click = isAutoDone ? `onclick="alert('Tu autovaloración ya fue enviada.')"` : `onclick="startEval('99')"`;
+  // Tarjeta de Autovaloración (Solamente si es Jefe)
+  if (miTipoUsuario && miTipoUsuario.toLowerCase() === 'jefe') {
     
-    html+=`<div class="ei ${isAutoDone?'done':''}" ${click}><div class="eav ${isAutoDone?'d':''}">${isAutoDone?'✓':'YO'}</div>
-      <div><div class="en">Autovaloración</div><div class="em">35–45 min</div></div>
-      ${badge}</div>`;
-  } else {
-    html+=`<div class="ei locked" onclick="goTo('locked')"><div class="eav">🔒</div>
-      <div><div class="en">Autovaloración</div><div class="em">Completa las demás para desbloquear</div></div>
-      <span class="bx bxl">Bloqueada</span></div>`;
-  }
+    html+=`<div class="gl">Autovaloración</div>`;
+    const isAutoDone = state.autoStatus === 'done';
+    const isAutoP = state.autoStatus === 'inprog';
+    
+    if(allDone || isAutoDone || isAutoP) {
+      const badge = isAutoDone ? `<span class="bx bxd">Completada</span>` : isAutoP ? `<span class="bx bxi">En progreso</span>` : `<span class="bx bxp">Disponible</span>`;
+      const click = isAutoDone ? `onclick="alert('Tu autovaloración ya fue enviada.')"` : `onclick="startEval('99')"`;
+      
+      html+=`<div class="ei ${isAutoDone?'done':''}" ${click}><div class="eav ${isAutoDone?'d':''}">${isAutoDone?'✓':'YO'}</div>
+        <div><div class="en">Autovaloración</div><div class="em">35–45 min</div></div>
+        ${badge}</div>`;
+    } else {
+      html+=`<div class="ei locked" onclick="goTo('locked')"><div class="eav">🔒</div>
+        <div><div class="en">Autovaloración</div><div class="em">Completa las demás para desbloquear</div></div>
+        <span class="bx bxl">Bloqueada</span></div>`;
+    }
+    
+  } // <-- Fin del IF del Jefe
   
   document.getElementById('eval-list').innerHTML = html;
 }
