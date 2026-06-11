@@ -527,8 +527,8 @@ let currentUser = null;
 
 // Inicializa las imágenes y UI
 document.getElementById('hero-img').src = IMG_MEDUSA;
-document.getElementById('login-logo').src = "logo_belt.jfif";
-document.getElementById('hero-logo').src = "logo_belt.jfif";
+document.getElementById('login-logo').src = "logo_belt.png";
+document.getElementById('hero-logo').src = "logo_belt.png";
 if(document.getElementById('confirm-img')) { document.getElementById('confirm-img').src = IMG_MEDUSA2; }
 
 // --- FUNCIONES DE NAVEGACIÓN ---
@@ -846,36 +846,56 @@ function startEval(id) {
   const ev = id.toString()==='99' ? {id:99,name:'Autovaloración',tipo:'Auto',ini:'YO'} : state.evals.find(e=>e.id.toString()===id.toString());
   if(!ev) return;
   
-  state.ev=ev; state.q=0; state.score=null;
+  state.ev=ev; state.score=null;
   
   QS_ACTUAL = filtrarPreguntasPorRol(ev.tipo);
   
+  // NUEVA LÓGICA: Buscar la primera pregunta sin responder para "continuar"
+  let startIndex = 0;
+  for (let i = 0; i < QS_ACTUAL.length; i++) {
+    if (!state.ans[`${ev.id}_${i}`]) {
+      startIndex = i; // Encontramos la primera vacía
+      break;
+    }
+    // Si todas están respondidas, nos quedamos en la última para que pueda avanzar al Feedforward
+    if (i === QS_ACTUAL.length - 1) {
+      startIndex = i;
+    }
+  }
+  
+  state.q = startIndex; // Asignamos el progreso guardado
+
   if (id.toString() === '99' && state.autoStatus === 'pending') state.autoStatus = 'inprog';
   else if (id.toString() !== '99' && ev.status === 'pending') ev.status = 'inprog';
 
-  const saved_ff = state.ff[ev.id] || {ff1:'',ff2:''};
-  document.getElementById('ff1').value=saved_ff.ff1;
-  document.getElementById('ff2').value=saved_ff.ff2;
-  document.getElementById('ff-leader-name').textContent=ev.name;
+  // CORRECCIÓN DEL ERROR LENGTH: Asignar un string vacío si la base de datos devuelve undefined
+  const saved_ff = state.ff[ev.id] || {};
+  const val_ff1 = saved_ff.ff1 || '';
+  const val_ff2 = saved_ff.ff2 || '';
 
-  const banner=document.getElementById('evaluee-banner');
-  document.getElementById('ev-avatar').textContent=ev.ini||'YO';
-  document.getElementById('ev-name').textContent='Valorando a: '+ev.name;
+  document.getElementById('ff1').value = val_ff1;
+  document.getElementById('ff2').value = val_ff2;
+  document.getElementById('ff-leader-name').textContent = ev.name;
+
+  const banner = document.getElementById('evaluee-banner');
+  document.getElementById('ev-avatar').textContent = ev.ini || 'YO';
+  document.getElementById('ev-name').textContent = 'Valorando a: ' + ev.name;
   
   const roleLabels={Jefe:'Jefe directo',Par:'Par',Liderado:'Liderado/a',Auto:'Autovaloración'};
   const rolePillClass={Jefe:'role-jefe',Par:'role-par',Liderado:'role-liderado',Auto:'role-auto'};
-  document.getElementById('ev-role-tag').textContent=ev.role||ev.tipo;
+  document.getElementById('ev-role-tag').textContent = ev.role || ev.tipo;
   
-  const pill=document.getElementById('ev-role-pill');
-  pill.textContent=roleLabels[ev.tipo]||ev.tipo;
-  pill.className='role-pill '+(rolePillClass[ev.tipo]||'role-auto');
-  banner.style.display='flex';
+  const pill = document.getElementById('ev-role-pill');
+  pill.textContent = roleLabels[ev.tipo] || ev.tipo;
+  pill.className = 'role-pill ' + (rolePillClass[ev.tipo] || 'role-auto');
+  banner.style.display = 'flex';
 
-  document.getElementById('fc1').textContent=saved_ff.ff1.length+' caracteres';
-  document.getElementById('fc2').textContent=saved_ff.ff2.length+' caracteres';
+  // Usar las variables seguras para calcular el length sin que choque
+  document.getElementById('fc1').textContent = val_ff1.length + ' caracteres';
+  document.getElementById('fc2').textContent = val_ff2.length + ' caracteres';
   
   checkFF();
-  loadQ(0); 
+  loadQ(state.q); // Cargar desde la pregunta calculada
   goTo('q');
   sincronizarConSupabase();
 }
