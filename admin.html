@@ -186,11 +186,11 @@ async function loginAdmin() {
 }
 
 async function cargarUsuarios() {
-  const { data, error } = await _supabase.from('detalles_empleados').select('*');
+  const { data, error } = await _supabase.from('detalles_empleados').select('*').eq('tipo_usuario', 'jefe');
   if (data) {
     listaEmpleadosGlobal = data;
     const select = document.getElementById('user-select');
-    select.innerHTML = '<option value="">-- Selecciona a quién evaluar --</option>';
+    select.innerHTML = '<option value="">-- Ver reporte de --</option>';
     data.forEach(u => {
       if(u.id_auto_evaluado) select.innerHTML += `<option value="${u.id_auto_evaluado}">${u.evaluado}</option>`;
     });
