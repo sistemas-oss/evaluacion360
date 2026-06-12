@@ -9,8 +9,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f4f9; color: #333; margin: 0; padding: 20px; }
-  .container { max-width: 1000px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+  .container { max-width: 1100px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
   h1 { font-family: Georgia, serif; color: #1A0D2E; }
+  h2 { font-family: Georgia, serif; color: #1A0D2E; font-size: 18px; margin: 30px 0 12px; border-bottom: 2px solid #e0d8ff; padding-bottom: 6px; }
   .login-box { display: flex; flex-direction: column; gap: 10px; max-width: 300px; margin-bottom: 20px; }
   input, select, button { padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; }
   button { background: #674393; color: white; cursor: pointer; border: none; font-weight: bold; transition: opacity 0.2s; }
@@ -20,7 +21,7 @@
   .btn-green { background: #2E7D32; }
   .btn-blue { background: #1A2B4C; }
   
-  /* ESTILOS DE LA TABLA */
+  /* TABLA DE PUNTUACIONES */
   #table-container { padding: 10px; background: #fff; border-radius: 8px; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   th, td { border: 1px solid #b3ccff; padding: 12px; text-align: center; }
@@ -28,6 +29,37 @@
   .text-left { text-align: left; font-weight: 500; background: #f9fbff; }
   .bg-orange { background: #ffe6cc; font-weight: bold; color: #b35900; }
   .bg-green { background: #e6ffed; font-weight: bold; color: #006622; }
+
+  /* SECCIÓN DE COMENTARIOS */
+  #comments-section { margin-top: 30px; }
+  .comments-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  .comments-table th { background: #3d2b6e; color: #fff; padding: 9px 12px; text-align: left; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+  .comments-table td { border: 1px solid #ddd; padding: 9px 12px; vertical-align: top; }
+  .comments-table tr:nth-child(even) td { background: #f7f5ff; }
+  .tag-jefe { background: rgba(103,67,147,0.15); color: #674393; border: 1px solid rgba(103,67,147,0.3); padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .tag-par { background: rgba(90,130,200,0.15); color: #1a5c9a; border: 1px solid rgba(90,130,200,0.3); padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .tag-liderado { background: rgba(170,120,160,0.15); color: #7a3a6e; border: 1px solid rgba(170,120,160,0.3); padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .tag-auto { background: rgba(186,117,23,0.15); color: #8a5800; border: 1px solid rgba(186,117,23,0.3); padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .comp-badge { display: inline-block; width: 22px; height: 22px; border-radius: 50%; color: #fff; font-weight: 700; font-size: 11px; text-align: center; line-height: 22px; margin-right: 4px; }
+  .comment-text { color: #333; font-style: italic; line-height: 1.5; }
+  .no-comment { color: #aaa; font-size: 12px; }
+  .q-text { color: #555; font-size: 12px; line-height: 1.4; }
+
+  /* SECCIÓN FEEDFORWARD */
+  #feedforward-section { margin-top: 30px; }
+  .ff-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin-top: 10px; }
+  .ff-card { border: 1px solid #e0d8ff; border-radius: 10px; overflow: hidden; }
+  .ff-card-header { background: #3d2b6e; color: #fff; padding: 9px 14px; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; }
+  .ff-card-body { padding: 12px 14px; background: #fafafa; }
+  .ff-block { margin-bottom: 12px; }
+  .ff-block:last-child { margin-bottom: 0; }
+  .ff-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 5px; }
+  .ff-label.pos { color: #2E7D32; }
+  .ff-label.dev { color: #674393; }
+  .ff-value { background: #fff; border: 1px solid #e0e0e0; border-radius: 7px; padding: 9px 11px; font-size: 13px; color: #333; line-height: 1.55; }
+  .ff-empty { color: #aaa; font-size: 12px; font-style: italic; }
+  
+  #no-data-msg { color: #999; font-size: 14px; padding: 10px 0; }
 </style>
 </head>
 <body>
@@ -47,7 +79,7 @@
       <select id="user-select" style="flex: 1; min-width: 250px;">
         <option value="">Cargando usuarios...</option>
       </select>
-      <button onclick="generarReporte()">Generar Tabla Web</button>
+      <button onclick="generarReporte()">Generar Reporte</button>
       <button id="btn-img" class="btn-green" style="display:none;" onclick="descargarImagen()">Descargar Imagen</button>
     </div>
 
@@ -56,7 +88,23 @@
       <button class="btn-blue" onclick="exportarExcelTodos()">📊 Exportar TODOS a Excel</button>
     </div>
 
+    <!-- Tabla de puntuaciones -->
     <div id="table-container"></div>
+
+    <!-- Comentarios por pregunta -->
+    <div id="comments-section" style="display:none;">
+      <h2>💬 Comentarios por pregunta</h2>
+      <p style="font-size:13px;color:#666;margin-bottom:10px;">Ejemplos concretos dejados por cada evaluador en cada pregunta.</p>
+      <div id="comments-container"></div>
+    </div>
+
+    <!-- Feedforward -->
+    <div id="feedforward-section" style="display:none;">
+      <h2>🚀 Feedforward recibido</h2>
+      <p style="font-size:13px;color:#666;margin-bottom:10px;">Respuestas abiertas sobre qué hacer más y qué cambiar.</p>
+      <div id="feedforward-container" class="ff-grid"></div>
+    </div>
+
   </div>
 </div>
 
@@ -67,16 +115,40 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// --- PREGUNTAS (Para reconstruir índices) ---
+// --- PREGUNTAS COMPLETAS (con texto) ---
 const TODAS_LAS_PREGUNTAS = [
-  {c:'V', fuente:'TODOS'}, {c:'V', fuente:'TODOS'}, {c:'V', fuente:'JEFE'}, {c:'V', fuente:'JEFE'},
-  {c:'I', fuente:'TODOS'}, {c:'I', fuente:'TODOS'}, {c:'I', fuente:'PARES / LIDERADOS'}, {c:'I', fuente:'LIDERADOS'},
-  {c:'T', fuente:'TODOS'}, {c:'T', fuente:'JEFE / PARES'}, {c:'T', fuente:'JEFE / PARES'}, {c:'T', fuente:'LIDERADOS'},
-  {c:'A', fuente:'TODOS'}, {c:'A', fuente:'PARES / LIDERADOS'}, {c:'A', fuente:'PARES / LIDERADOS'}, {c:'A', fuente:'LIDERADOS'},
-  {c:'L', fuente:'JEFE'}, {c:'L', fuente:'JEFE'}, {c:'L', fuente:'JEFE / LIDERADOS'}, {c:'L', fuente:'LIDERADOS'},
-  {c:'E', fuente:'LIDERADOS'}, {c:'E', fuente:'LIDERADOS'}, {c:'E', fuente:'LIDERADOS'}, {c:'E', fuente:'LIDERADOS'},
-  {c:'E', fuente:'PARES / JEFE'}, {c:'E', fuente:'PARES / JEFE'}, {c:'E', fuente:'PARES / JEFE'}, {c:'E', fuente:'PARES / JEFE'},
-  {c:'S', fuente:'TODOS'}, {c:'S', fuente:'TODOS'}, {c:'S', fuente:'JEFE / PARES'}, {c:'S', fuente:'JEFE / PARES'}
+  {c:'V', fuente:'TODOS', q:'¿Con qué frecuencia actúa con coherencia ética, incluso cuando hacerlo es incómodo o genera fricciones?'},
+  {c:'V', fuente:'TODOS', q:'¿En qué medida prioriza el valor correcto sobre la opción más conveniente para él/ella o su área?'},
+  {c:'V', fuente:'JEFE', q:'¿Delega y empodera la toma de decisiones dentro de su ámbito, promoviendo autonomía y criterio en su equipo?'},
+  {c:'V', fuente:'JEFE', q:'¿Asume la responsabilidad por las consecuencias de sus decisiones, incluyendo las que no salieron bien?'},
+  {c:'I', fuente:'TODOS', q:'¿Cumple lo que promete, tanto en compromisos grandes como en los pequeños del día a día?'},
+  {c:'I', fuente:'TODOS', q:'¿Genera un ambiente donde las personas se sienten seguras para dar su opinión o cometer errores?'},
+  {c:'I', fuente:'PARES / LIDERADOS', q:'¿Comunica oportunamente cuando no podrá cumplir un compromiso, en lugar de esperar a que el problema escale?'},
+  {c:'I', fuente:'LIDERADOS', q:'¿Te sientes inspirado/a por esta persona más por lo que hace que por el cargo que ocupa?'},
+  {c:'T', fuente:'TODOS', q:'¿Cuestiona sus propias ideas y ajusta sus decisiones cuando la evidencia lo indica, sin aferrarse a su posición inicial?'},
+  {c:'T', fuente:'JEFE / PARES', q:'¿Promueve la experimentación responsable y reconoce públicamente los aprendizajes obtenidos?'},
+  {c:'T', fuente:'JEFE / PARES', q:'¿Utiliza datos, métricas o tendencias concretas para fundamentar sus decisiones de rediseño de procesos o estrategia?'},
+  {c:'T', fuente:'LIDERADOS', q:'¿Sientes que esta persona se transforma a sí misma antes de exigir cambios al equipo?'},
+  {c:'A', fuente:'TODOS', q:'¿Comunica sus expectativas, decisiones y retroalimentación de forma clara y directa, sin rodeos ni ambigüedad?'},
+  {c:'A', fuente:'PARES / LIDERADOS', q:'¿Da feedback y feedforward oportuno y concreto, orientado al crecimiento?'},
+  {c:'A', fuente:'PARES / LIDERADOS', q:'¿Enfrenta conversaciones difíciles en lugar de evitarlas o delegarlas?'},
+  {c:'A', fuente:'LIDERADOS', q:'¿Recibe feedback sobre su liderazgo sin ponerse a la defensiva o ignorarlo?'},
+  {c:'L', fuente:'JEFE', q:'¿Alinea los objetivos de su equipo con la estrategia de BELT de forma visible y sostenida?'},
+  {c:'L', fuente:'JEFE', q:'¿Hace seguimiento consistente a los resultados, sin esperar a que los problemas escalen?'},
+  {c:'L', fuente:'JEFE / LIDERADOS', q:'¿Prioriza el logro colectivo sobre los resultados individuales o de su área?'},
+  {c:'L', fuente:'LIDERADOS', q:'¿Invierte tiempo en desarrollar las capacidades del equipo para que los resultados sean sostenibles?'},
+  {c:'E', fuente:'LIDERADOS', q:'¿Delega tareas con claridad sobre qué, por qué y con qué nivel de autonomía, sin intervenir innecesariamente?'},
+  {c:'E', fuente:'LIDERADOS', q:'¿Confía en tu criterio y te da espacio para tomar decisiones dentro de tu rol?'},
+  {c:'E', fuente:'LIDERADOS', q:'¿Usa los espacios 1:1 para tu desarrollo y orientación al logro colectivo, no solo para revisar tareas?'},
+  {c:'E', fuente:'LIDERADOS', q:'¿Sientes que esta persona te desarrolla hacia mayor autonomía, o que genera dependencia?'},
+  {c:'E', fuente:'PARES / JEFE', q:'¿Comparte su conocimiento de forma que otros desarrollan criterio propio, o genera dependencia?'},
+  {c:'E', fuente:'PARES / JEFE', q:'¿Cuando alguien comete un error, lo acompaña para que aprenda, o lo corrige directamente?'},
+  {c:'E', fuente:'PARES / JEFE', q:'¿Da marcos, criterios y guía claros para que otros tomen decisiones sin necesitar su validación constante?'},
+  {c:'E', fuente:'PARES / JEFE', q:'¿Diseña procesos para que el conocimiento de su dominio viva en el equipo y no solo en él/ella?'},
+  {c:'S', fuente:'TODOS', q:'¿Toma decisiones considerando cómo afectan a otras áreas, al cliente y a la comunidad?'},
+  {c:'S', fuente:'TODOS', q:'¿Comparte su conocimiento y experiencia de forma generosa y proactiva, sin acumularlo como poder?'},
+  {c:'S', fuente:'JEFE / PARES', q:'¿Crea condiciones para que otros compartan su saber y facilita el aprendizaje colectivo?'},
+  {c:'S', fuente:'JEFE / PARES', q:'¿Evita soluciones simplistas a problemas complejos, considerando consecuencias secundarias?'}
 ];
 
 const COMPETENCIAS = [
@@ -85,7 +157,8 @@ const COMPETENCIAS = [
   {id: 'S', name: 'S · Sistémico + Saber Colectivo'}
 ];
 
-// --- MATRIZ DE PESOS PONDERADOS ---
+const COMP_COLORS = {V:'#674393',I:'#674393',T:'#614C73',A:'#7C5C8B',L:'#AA78A0',E:'#845D7A',S:'#844867'};
+
 const PESOS = {
   V: { Jefe: 0.40, Par: 0.15, Liderado: 0.25, Auto: 0.20 },
   I: { Jefe: 0.20, Par: 0.30, Liderado: 0.35, Auto: 0.15 },
@@ -103,7 +176,6 @@ async function loginAdmin() {
   const email = document.getElementById('admin-email').value;
   const pass = document.getElementById('admin-pass').value;
   const { error } = await _supabase.auth.signInWithPassword({ email, password: pass });
-  
   if(!error) {
     document.getElementById('login-section').style.display = 'none';
     document.getElementById('dashboard-section').style.display = 'block';
@@ -116,7 +188,7 @@ async function loginAdmin() {
 async function cargarUsuarios() {
   const { data, error } = await _supabase.from('detalles_empleados').select('*');
   if (data) {
-    listaEmpleadosGlobal = data; // Lo guardamos para el Excel global
+    listaEmpleadosGlobal = data;
     const select = document.getElementById('user-select');
     select.innerHTML = '<option value="">-- Selecciona a quién evaluar --</option>';
     data.forEach(u => {
@@ -131,7 +203,7 @@ function filtrarPreguntasPorRol(tipoEvaluado) {
     const fuente = p.fuente.toUpperCase();
     if (fuente === 'TODOS' || tipo === 'AUTO') return true;
     if (tipo === 'LIDERADO' && (fuente === 'LIDERADOS' || fuente === 'PARES / LIDERADOS' || fuente === 'JEFE / LIDERADOS')) return true;
-    if (tipo === 'JEFE' && (fuente === 'JEFE' || fuente === 'JEFE / PARES')) return true;
+    if (tipo === 'JEFE' && (fuente === 'JEFE' || fuente === 'JEFE / PARES' || fuente === 'JEFE / LIDERADOS')) return true;
     if (tipo === 'PAR' && (fuente === 'PARES / LIDERADOS' || fuente === 'JEFE / PARES')) return true;
     return false;
   });
@@ -143,8 +215,7 @@ function calcPromedio(arr) {
 }
 
 function calcularPonderado(j, p, l, a, pesosAplicados) {
-  let suma = 0;
-  let pesoTotalValido = 0;
+  let suma = 0, pesoTotalValido = 0;
   if (j !== null) { suma += j * pesosAplicados.Jefe; pesoTotalValido += pesosAplicados.Jefe; }
   if (p !== null) { suma += p * pesosAplicados.Par; pesoTotalValido += pesosAplicados.Par; }
   if (l !== null) { suma += l * pesosAplicados.Liderado; pesoTotalValido += pesosAplicados.Liderado; }
@@ -152,7 +223,7 @@ function calcularPonderado(j, p, l, a, pesosAplicados) {
   return pesoTotalValido > 0 ? (suma / pesoTotalValido) : null;
 }
 
-// --- 1. LÓGICA DE TABLA INDIVIDUAL ---
+// ── REPORTE COMPLETO ──────────────────────────────────────────────────────────
 async function generarReporte() {
   const evaluadoId = document.getElementById('user-select').value;
   if (!evaluadoId) return alert("Selecciona un usuario");
@@ -162,9 +233,16 @@ async function generarReporte() {
 
   if(error) return alert("Error al cargar datos");
 
+  // 1. Tabla de puntuaciones
   const scores = procesarDatosPuntuacion(data);
   dibujarTabla(scores.scores, scores.tieneLiderados);
   document.getElementById('btn-img').style.display = 'inline-block';
+
+  // 2. Comentarios por pregunta
+  dibujarComentarios(data);
+
+  // 3. Feedforward
+  dibujarFeedforward(data);
 }
 
 function procesarDatosPuntuacion(dataProgresos) {
@@ -172,41 +250,31 @@ function procesarDatosPuntuacion(dataProgresos) {
   COMPETENCIAS.forEach(c => {
     scores.Jefe[c.id] = []; scores.Par[c.id] = []; scores.Liderado[c.id] = []; scores.Auto[c.id] = [];
   });
-
   let tieneLiderados = false;
   dataProgresos.forEach(row => {
     const rol = row.tipo_evaluado;
     if (rol === 'Liderado') tieneLiderados = true;
-
     const qs = filtrarPreguntasPorRol(rol);
     const respuestas = row.respuestas || {};
-
     Object.keys(respuestas).forEach(idx => {
       const nota = respuestas[idx].score;
       if (nota && nota !== 'na') {
-        const competencia = qs[idx].c;
-        scores[rol][competencia].push(Number(nota));
+        const competencia = qs[idx] ? qs[idx].c : null;
+        if (competencia) scores[rol][competencia].push(Number(nota));
       }
     });
   });
-
   return { scores, tieneLiderados };
 }
 
 function dibujarTabla(scores, tieneLiderados) {
   let html = `<table>
-    <thead>
-      <tr>
-        <th>Competencia Vital</th>
-        <th>Auto</th>
-        <th>Jefe</th>
-        <th>Pares</th>
-        <th>Liderados</th>
-        <th class="bg-green">Nota Final</th>
-        <th class="bg-orange">Brecha Máx</th>
-      </tr>
-    </thead>
-    <tbody>`;
+    <thead><tr>
+      <th>Competencia Vital</th>
+      <th>Auto</th><th>Jefe</th><th>Pares</th><th>Liderados</th>
+      <th class="bg-green">Nota Final</th>
+      <th class="bg-orange">Brecha Máx</th>
+    </tr></thead><tbody>`;
 
   let sumCol = { Auto:0, Jefe:0, Par:0, Liderado:0, Final:0 };
   let countCol = { Auto:0, Jefe:0, Par:0, Liderado:0, Final:0 };
@@ -216,10 +284,8 @@ function dibujarTabla(scores, tieneLiderados) {
     const avgJ = calcPromedio(scores.Jefe[comp.id]);
     const avgP = calcPromedio(scores.Par[comp.id]);
     const avgL = calcPromedio(scores.Liderado[comp.id]);
-
     let pesosComp = PESOS[comp.id];
     if (comp.id === 'E') pesosComp = tieneLiderados ? PESOS.E_Jerarquico : PESOS.E_Transversal;
-
     const finalScore = calcularPonderado(avgJ, avgP, avgL, avgA, pesosComp);
     const validScores = [avgA, avgJ, avgP, avgL].filter(x => x !== null);
     const brecha = validScores.length > 0 ? (Math.max(...validScores) - Math.min(...validScores)) : null;
@@ -249,18 +315,150 @@ function dibujarTabla(scores, tieneLiderados) {
     <td style="font-weight:bold;">${countCol.Liderado > 0 ? (sumCol.Liderado/countCol.Liderado).toFixed(1) : '-'}</td>
     <td class="bg-green" style="font-weight:bold; font-size:16px;">${countCol.Final > 0 ? (sumCol.Final/countCol.Final).toFixed(2) : '-'}</td>
     <td class="bg-orange">-</td>
-  </tr>
-  </tbody></table>`;
+  </tr></tbody></table>`;
 
   document.getElementById('table-container').innerHTML = html;
 }
 
-// --- 2. LÓGICA DE DESCARGAR IMAGEN ---
+// ── COMENTARIOS POR PREGUNTA ──────────────────────────────────────────────────
+function dibujarComentarios(dataProgresos) {
+  // Recopilar todos los comentarios con sus metadatos
+  const comentarios = [];
+
+  dataProgresos.forEach(row => {
+    const rol = row.tipo_evaluado;
+    const qs = filtrarPreguntasPorRol(rol);
+    const respuestas = row.respuestas || {};
+
+    Object.keys(respuestas).forEach(idx => {
+      const r = respuestas[idx];
+      if (r && r.comment && r.comment.trim() !== '') {
+        const pregunta = qs[parseInt(idx)];
+        if (pregunta) {
+          comentarios.push({
+            rol,
+            comp: pregunta.c,
+            pregunta: pregunta.q,
+            score: r.score,
+            comment: r.comment.trim()
+          });
+        }
+      }
+    });
+  });
+
+  const seccion = document.getElementById('comments-section');
+
+  if (comentarios.length === 0) {
+    seccion.style.display = 'block';
+    document.getElementById('comments-container').innerHTML = '<p id="no-data-msg">No hay comentarios por pregunta en estas valoraciones.</p>';
+    return;
+  }
+
+  // Agrupar por competencia
+  const porCompetencia = {};
+  COMPETENCIAS.forEach(c => { porCompetencia[c.id] = []; });
+  comentarios.forEach(c => {
+    if (porCompetencia[c.comp]) porCompetencia[c.comp].push(c);
+  });
+
+  const rolTag = (rol) => {
+    const map = { Jefe: 'tag-jefe', Par: 'tag-par', Liderado: 'tag-liderado', Auto: 'tag-auto' };
+    return `<span class="${map[rol] || 'tag-auto'}">${rol}</span>`;
+  };
+
+  let html = '';
+
+  COMPETENCIAS.forEach(comp => {
+    const items = porCompetencia[comp.id];
+    if (items.length === 0) return;
+
+    html += `<h3 style="font-size:14px;color:#1A0D2E;margin:18px 0 6px;display:flex;align-items:center;gap:8px;">
+      <span class="comp-badge" style="background:${COMP_COLORS[comp.id]}">${comp.id}</span>
+      ${comp.name}
+    </h3>
+    <table class="comments-table">
+      <thead><tr>
+        <th style="width:90px">Rol</th>
+        <th>Pregunta</th>
+        <th style="width:60px;text-align:center">Score</th>
+        <th>Comentario / Ejemplo concreto</th>
+      </tr></thead>
+      <tbody>`;
+
+    items.forEach(item => {
+      const scoreLabel = item.score === 'na' ? 'N/A' : item.score;
+      html += `<tr>
+        <td>${rolTag(item.rol)}</td>
+        <td class="q-text">${item.pregunta}</td>
+        <td style="text-align:center;font-weight:700;color:#674393">${scoreLabel}</td>
+        <td class="comment-text">"${item.comment}"</td>
+      </tr>`;
+    });
+
+    html += `</tbody></table>`;
+  });
+
+  document.getElementById('comments-container').innerHTML = html;
+  seccion.style.display = 'block';
+}
+
+// ── FEEDFORWARD ───────────────────────────────────────────────────────────────
+function dibujarFeedforward(dataProgresos) {
+  const seccion = document.getElementById('feedforward-section');
+  const container = document.getElementById('feedforward-container');
+
+  // Filtrar sólo filas con al menos un campo de feedforward
+  const filas = dataProgresos.filter(row => {
+    const ff = row.feedforward;
+    return ff && (ff.ff1 || ff.ff2);
+  });
+
+  if (filas.length === 0) {
+    seccion.style.display = 'block';
+    container.innerHTML = '<p id="no-data-msg">No hay respuestas de feedforward en estas valoraciones.</p>';
+    return;
+  }
+
+  const rolHeaderColor = { Jefe: '#3d2b6e', Par: '#1a3a6e', Liderado: '#5a2b5e', Auto: '#7a4a00' };
+  const rolLabel = { Jefe: '👔 Jefe directo', Par: '🤝 Par', Liderado: '👥 Liderado/a', Auto: '🪞 Autovaloración' };
+
+  let html = '';
+  filas.forEach((row, i) => {
+    const ff = row.feedforward || {};
+    const rol = row.tipo_evaluado;
+    const color = rolHeaderColor[rol] || '#3d2b6e';
+    const label = rolLabel[rol] || rol;
+    const ff1 = (ff.ff1 || '').trim();
+    const ff2 = (ff.ff2 || '').trim();
+
+    html += `<div class="ff-card">
+      <div class="ff-card-header" style="background:${color}">
+        <span>${label}</span>
+        <span style="margin-left:auto;opacity:.7;font-weight:400">#${i+1}</span>
+      </div>
+      <div class="ff-card-body">
+        <div class="ff-block">
+          <div class="ff-label pos">⭐ Feedforward positivo — Qué sigue haciendo</div>
+          <div class="ff-value">${ff1 ? ff1 : '<span class="ff-empty">Sin respuesta</span>'}</div>
+        </div>
+        <div class="ff-block">
+          <div class="ff-label dev">↗ Feedforward de desarrollo — Qué cambiaría</div>
+          <div class="ff-value">${ff2 ? ff2 : '<span class="ff-empty">Sin respuesta</span>'}</div>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  container.innerHTML = html;
+  seccion.style.display = 'block';
+}
+
+// ── DESCARGAR IMAGEN ──────────────────────────────────────────────────────────
 function descargarImagen() {
   const container = document.getElementById('table-container');
   const userSelect = document.getElementById('user-select');
   const nombreEvaluado = userSelect.options[userSelect.selectedIndex].text;
-  
   html2canvas(container, { backgroundColor: "#ffffff", scale: 2 }).then(canvas => {
     const link = document.createElement('a');
     link.download = `Resultados_360_${nombreEvaluado.replace(/\s+/g, '_')}.png`;
@@ -269,28 +467,22 @@ function descargarImagen() {
   });
 }
 
-// --- 3. LÓGICA DE EXPORTAR EXCEL (TODOS LOS USUARIOS) ---
+// ── EXPORTAR EXCEL (TODOS) ────────────────────────────────────────────────────
 async function exportarExcelTodos() {
   alert("Generando Excel, esto puede tomar unos segundos...");
 
-  // Obtenemos todos los progresos en estado 'done' de toda la tabla
   const { data: progresosGlobales, error: errProg } = await _supabase.from('progreso_valoraciones').select('*').eq('estado', 'done');
   if (errProg || !progresosGlobales) return alert("Error cargando valoraciones");
 
   let excelData = [];
 
-  // Recorremos la lista de empleados uno por uno
   listaEmpleadosGlobal.forEach(emp => {
     if (!emp.id_auto_evaluado) return;
-
     const evalId = emp.id_auto_evaluado;
     const nombre = emp.evaluado || 'Desconocido';
-
-    // Filtramos las respuestas que solo pertenecen a este empleado
     const userProgs = progresosGlobales.filter(p => p.evaluado_id === evalId);
-    if (userProgs.length === 0) return; // Si nadie lo evaluó aún, lo saltamos.
+    if (userProgs.length === 0) return;
 
-    // Reutilizamos la función de proceso
     const datosProcesados = procesarDatosPuntuacion(userProgs);
     const scores = datosProcesados.scores;
     const tieneLiderados = datosProcesados.tieneLiderados;
@@ -303,26 +495,19 @@ async function exportarExcelTodos() {
       const avgJ = calcPromedio(scores.Jefe[comp.id]);
       const avgP = calcPromedio(scores.Par[comp.id]);
       const avgL = calcPromedio(scores.Liderado[comp.id]);
-
       let pesosComp = PESOS[comp.id];
       if (comp.id === 'E') pesosComp = tieneLiderados ? PESOS.E_Jerarquico : PESOS.E_Transversal;
-
       const finalScore = calcularPonderado(avgJ, avgP, avgL, avgA, pesosComp);
       const validScores = [avgA, avgJ, avgP, avgL].filter(x => x !== null);
       const brecha = validScores.length > 0 ? (Math.max(...validScores) - Math.min(...validScores)) : null;
-
       if(avgA !== null) { sumCol.Auto += avgA; countCol.Auto++; }
       if(avgJ !== null) { sumCol.Jefe += avgJ; countCol.Jefe++; }
       if(avgP !== null) { sumCol.Par += avgP; countCol.Par++; }
       if(avgL !== null) { sumCol.Liderado += avgL; countCol.Liderado++; }
       if(finalScore !== null) { sumCol.Final += finalScore; countCol.Final++; }
-
-      // Agregamos la fila al Excel
       excelData.push({
-        "ID_Evaluado": evalId,
-        "Evaluado": nombre,
-        "Cargo": emp.cargo_evaluado || '-',
-        "Tribu": emp.tribu_evaluado || '-',
+        "ID_Evaluado": evalId, "Evaluado": nombre,
+        "Cargo": emp.cargo_evaluado || '-', "Tribu": emp.tribu_evaluado || '-',
         "Competencia Vital": comp.name,
         "Auto": avgA !== null ? Number(avgA.toFixed(2)) : null,
         "Jefe": avgJ !== null ? Number(avgJ.toFixed(2)) : null,
@@ -333,28 +518,21 @@ async function exportarExcelTodos() {
       });
     });
 
-    // Fila resumen de la persona
     excelData.push({
-        "ID_Evaluado": evalId,
-        "Evaluado": nombre,
-        "Cargo": emp.cargo_evaluado || '-',
-        "Tribu": emp.tribu_evaluado || '-',
-        "Competencia Vital": "PROMEDIO PONDERADO",
-        "Auto": countCol.Auto > 0 ? Number((sumCol.Auto/countCol.Auto).toFixed(2)) : null,
-        "Jefe": countCol.Jefe > 0 ? Number((sumCol.Jefe/countCol.Jefe).toFixed(2)) : null,
-        "Pares": countCol.Par > 0 ? Number((sumCol.Par/countCol.Par).toFixed(2)) : null,
-        "Liderados": countCol.Liderado > 0 ? Number((sumCol.Liderado/countCol.Liderado).toFixed(2)) : null,
-        "Nota Final (Ponderada)": countCol.Final > 0 ? Number((sumCol.Final/countCol.Final).toFixed(2)) : null,
-        "Brecha Máxima": null
+      "ID_Evaluado": evalId, "Evaluado": nombre,
+      "Cargo": emp.cargo_evaluado || '-', "Tribu": emp.tribu_evaluado || '-',
+      "Competencia Vital": "PROMEDIO PONDERADO",
+      "Auto": countCol.Auto > 0 ? Number((sumCol.Auto/countCol.Auto).toFixed(2)) : null,
+      "Jefe": countCol.Jefe > 0 ? Number((sumCol.Jefe/countCol.Jefe).toFixed(2)) : null,
+      "Pares": countCol.Par > 0 ? Number((sumCol.Par/countCol.Par).toFixed(2)) : null,
+      "Liderados": countCol.Liderado > 0 ? Number((sumCol.Liderado/countCol.Liderado).toFixed(2)) : null,
+      "Nota Final (Ponderada)": countCol.Final > 0 ? Number((sumCol.Final/countCol.Final).toFixed(2)) : null,
+      "Brecha Máxima": null
     });
-    
-    // Fila vacía para separar visualmente a las personas en el Excel
     excelData.push({});
   });
 
   if(excelData.length === 0) return alert("No hay suficientes evaluaciones finalizadas para exportar.");
-
-  // Generamos y descargamos el archivo
   const worksheet = XLSX.utils.json_to_sheet(excelData);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Base General 360");
