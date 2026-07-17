@@ -815,9 +815,38 @@ async function crearExcelFormateado(datos) {
         item.score === 'na' ? 'N/A' : item.score,
         item.comment
       ]);
+
+      // Estilo base
       dataRow.eachCell((cell) => {
-        cell.style = estiloDatos;
+        cell.font = { size: 12 };
+        cell.alignment = {
+          horizontal: 'left',
+          vertical: 'middle',
+          wrapText: true
+        };
       });
+
+      // Columna C: ROL
+      dataRow.getCell(3).alignment = {
+        horizontal: 'center',
+        vertical: 'middle',
+        wrapText: true
+      };
+
+      // Columna E: SCORE
+      dataRow.getCell(5).alignment = {
+        horizontal: 'center',
+        vertical: 'middle',
+        wrapText: true
+      };
+
+      // Columna F: COMENTARIO
+      dataRow.getCell(6).alignment = {
+        horizontal: 'left',
+        vertical: 'middle',
+        wrapText: true
+      };
+
       dataRow.height = 87;
       rowNum++;
     });
@@ -830,9 +859,21 @@ async function crearExcelFormateado(datos) {
     const mergedCell = worksheet.getCell(`B${startRow}`);
     mergedCell.value = comp.name;
     mergedCell.style = {
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: coloresCompetencia[comp.id] } },
-      font: { bold: true, size: 18, color: { argb: 'FF000000' } },
-      alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
+      fill: {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: coloresCompetencia[comp.id] }
+      },
+      font: {
+        bold: true,
+        size: 18,
+        color: { argb: 'FF000000' }
+      },
+      alignment: {
+        horizontal: 'center',
+        vertical: 'middle',
+        wrapText: true
+      }
     };
 
     // Fila en blanco
@@ -897,17 +938,57 @@ async function crearExcelFormateado(datos) {
         "",
         ff.feedforward_positivo || "(Sin respuesta)"
       ]);
+
       posRow.eachCell((cell) => {
         cell.style = estiloDatos;
       });
+
       posRow.getCell(2).style = {
         ...estiloDatos,
-        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEBF1DE' } }
+        fill: {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFEBF1DE' }
+        }
       };
+
       posRow.getCell(3).style = {
         ...estiloDatos,
-        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEBF1DE' } }
+        fill: {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFEBF1DE' }
+        },
+        alignment: {
+          horizontal: 'center',
+          vertical: 'middle',
+          wrapText: true
+        }
       };
+
+      posRow.getCell(4).style = {
+          ...estiloDatos,
+          alignment: {
+              horizontal: 'center',
+              vertical: 'middle',
+              wrapText: true
+          }
+      };
+
+      // Columna E vacía, pero centrada
+      posRow.getCell(5).alignment = {
+        horizontal: 'center',
+        vertical: 'middle',
+        wrapText: true
+      };
+
+      // Columna F: RESPUESTA FEEDFORWARD POSITIVO
+      posRow.getCell(6).alignment = {
+        horizontal: 'left',
+        vertical: 'middle',
+        wrapText: true
+      };
+
       posRow.height = 87;
       rowNum++;
 
@@ -920,17 +1001,57 @@ async function crearExcelFormateado(datos) {
         "",
         ff.feedforward_desarrollo || "(Sin respuesta)"
       ]);
+
       devRow.eachCell((cell) => {
         cell.style = estiloDatos;
       });
+
       devRow.getCell(2).style = {
         ...estiloDatos,
-        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2DCDB' } }
+        fill: {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF2DCDB' }
+        }
       };
+
       devRow.getCell(3).style = {
         ...estiloDatos,
-        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2DCDB' } }
+        fill: {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF2DCDB' }
+        },
+        alignment: {
+          horizontal: 'center',
+          vertical: 'middle',
+          wrapText: true
+        }
       };
+
+      devRow.getCell(4).style = {
+          ...estiloDatos,
+          alignment: {
+              horizontal: 'center',
+              vertical: 'middle',
+              wrapText: true
+          }
+      };
+
+      // Columna E vacía, pero centrada
+      devRow.getCell(5).alignment = {
+        horizontal: 'center',
+        vertical: 'middle',
+        wrapText: true
+      };
+
+      // Columna F: RESPUESTA FEEDFORWARD DESARROLLO
+      devRow.getCell(6).alignment = {
+        horizontal: 'left',
+        vertical: 'middle',
+        wrapText: true
+      };
+
       devRow.height = 87;
       rowNum++;
 
@@ -941,9 +1062,21 @@ async function crearExcelFormateado(datos) {
       const mergedCellFF = worksheet.getCell(`B${startRowFF}`);
       mergedCellFF.value = `Evaluador ${index + 1}\n(${ff.rol})`;
       mergedCellFF.style = {
-        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } },
-        font: { bold: true, size: 18, color: { argb: 'FF000000' } },
-        alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
+        fill: {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF2F2F2' }
+        },
+        font: {
+          bold: true,
+          size: 18,
+          color: { argb: 'FF000000' }
+        },
+        alignment: {
+          horizontal: 'center',
+          vertical: 'middle',
+          wrapText: true
+        }
       };
 
       // Fila en blanco
