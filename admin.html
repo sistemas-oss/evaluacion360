@@ -373,9 +373,16 @@ async function cargarProgresoGeneral() {
 
     const autoRows = progIdx[eid] || [];
     const autoFila = autoRows.find(r => r.evaluador_uuid === emp.id_auth);
-    const aDone = autoFila && autoFila.estado === 'done' ? 1 : 0;
-    const aProg = autoFila && autoFila.estado === 'inprog' ? 1 : 0;
-    const autoFalta = !autoFila;
+
+    const aDone = autoFila?.estado === 'done' ? 1 : 0;
+    const aProg = autoFila && autoFila.estado !== 'done' ? 1 : 0;
+
+    const autoFaltante = aDone === 0
+      ? {
+          nombre: emp.evaluado,
+          estado: aProg === 1 ? 'En progreso' : 'Pendiente'
+        }
+      : null;
 
     const pares = PAR_COLS.filter(c => emp[c]).length;
     const lids  = LID_COLS.filter(c => emp[c]).length;
@@ -388,10 +395,29 @@ async function cargarProgresoGeneral() {
 
     totalDone += done; totalInprog += inprog; totalPending += pending;
 
-    return { id: eid, nombre: emp.evaluado, tieneJefe, pares, lids,
-             jDone, jProg, pDone, pProg, lDone, lProg, aDone, aProg,
-             done, inprog, pending, totalEsperado,
-             faltanJefe: infoJefe, paresFaltan, lidsFaltan, autoFalta };
+    return {
+      id: eid,
+      nombre: emp.evaluado,
+      tieneJefe,
+      pares,
+      lids,
+      jDone,
+      jProg,
+      pDone,
+      pProg,
+      lDone,
+      lProg,
+      aDone,
+      aProg,
+      done,
+      inprog,
+      pending,
+      totalEsperado,
+      faltanJefe: infoJefe,
+      paresFaltan,
+      lidsFaltan,
+      autoFaltante
+    };
   });
 
   const totalEncuestas = filas.reduce((a,f) => a + f.totalEsperado, 0);
@@ -421,7 +447,11 @@ async function cargarProgresoGeneral() {
   filas.forEach(f => {
     const pct = f.totalEsperado > 0 ? Math.round(f.done / f.totalEsperado * 100) : 0;
     const barClass = pct === 100 ? 'done' : pct > 0 ? 'partial' : '';
-    const hayFaltantes = f.faltanJefe.length > 0 || f.paresFaltan.length > 0 || f.lidsFaltan.length > 0 || f.autoFalta;
+    const hayFaltantes =
+      f.faltanJefe.length > 0 ||
+      f.paresFaltan.length > 0 ||
+      f.lidsFaltan.length > 0 ||
+      f.autoFaltante !== null;
     html += `<tr>
       <td><strong>${f.nombre}</strong></td>
       <td style="text-align:center">${celda(f.jDone, f.jProg, f.tieneJefe)}</td>
@@ -473,8 +503,13 @@ function mostrarDetalle(evaluadoId) {
   html += renderCard('👔 Jefe directo', ROL_COLOR.Jefe, f.faltanJefe);
   html += renderCard('🤝 Pares', ROL_COLOR.Par, f.paresFaltan);
   html += renderCard('👥 Liderados', ROL_COLOR.Liderado, f.lidsFaltan);
-  if (f.autoFalta) html += renderCard('🪞 Autovaloración', ROL_COLOR.Auto,
-    [{nombre: f.nombre, estado: 'Pendiente'}]);
+  if (f.autoFaltante) {
+    html += renderCard(
+      '🪞 Autovaloración',
+      ROL_COLOR.Auto,
+      [f.autoFaltante]
+    );
+  }
   if (!html) html = '<p style="color:#2E7D32;font-weight:600">✅ Todas las evaluaciones están completas.</p>';
 
   document.getElementById('detail-grid').innerHTML = html;
