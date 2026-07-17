@@ -7,6 +7,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f4f9; color: #333; margin: 0; padding: 20px; }
   .container { max-width: 1100px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
@@ -97,6 +99,10 @@
   #individual-report { display: none; }
   .report-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding: 14px 16px; background: #f7f5ff; border: 1px solid #e0d8ff; border-radius: 10px; }
   .report-header h2 { margin: 0; border: none; padding: 0; font-size: 16px; }
+  
+  /* BOTONES DESCARGA */
+  .download-buttons { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .btn-download { background: #2E7D32; padding: 10px 16px; font-size: 13px; }
 </style>
 </head>
 <body>
@@ -117,7 +123,7 @@
     <div id="progress-view">
       <div class="controls-row">
         <select id="user-select" style="flex:1;min-width:250px;">
-          <option value="">Cargando...</option>
+          <option value="">— Ver reporte de —</option>
         </select>
         <button onclick="generarReporte()">Ver reporte individual</button>
         <button class="btn-blue" onclick="exportarExcelTodos()">📊 Exportar TODOS a Excel</button>
@@ -141,6 +147,10 @@
         <button class="btn-back" onclick="volverAlProgreso()">← Volver al progreso general</button>
         <h2 id="report-title">Reporte de —</h2>
         <button id="btn-img" class="btn-green" style="display:none;margin-left:auto;" onclick="descargarImagen()">Descargar Imagen</button>
+      </div>
+
+      <div class="download-buttons">
+        <button class="btn-download" onclick="descargarComentariosExcel()">📄 Descargar COMENTARIOS en Excel</button>
       </div>
 
       <div id="table-container"></div>
@@ -219,6 +229,9 @@ const PESOS = {
 };
 
 let listaEmpleadosGlobal = [];
+let datosComentariosActual = [];
+let datosFeedforwardActual = [];
+let nombreEvaluadoActual = '';
 
 // ── LOGIN ─────────────────────────────────────────────────────────────────────
 async function loginAdmin() {
@@ -260,22 +273,22 @@ function mostrarVistaReporte(nombreEvaluado) {
   document.getElementById('progress-view').style.display = 'none';
   document.getElementById('individual-report').style.display = 'block';
   document.getElementById('report-title').textContent = `Reporte de ${nombreEvaluado}`;
+  nombreEvaluadoActual = nombreEvaluado;
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function volverAlProgreso() {
   mostrarVistaProgreso();
-  // Limpiar reporte anterior
   document.getElementById('table-container').innerHTML = '';
   document.getElementById('comments-section').style.display = 'none';
   document.getElementById('feedforward-section').style.display = 'none';
   document.getElementById('btn-img').style.display = 'none';
   document.getElementById('user-select').value = '';
+  datosComentariosActual = [];
 }
 
 // ── PROGRESO GENERAL ──────────────────────────────────────────────────────────
 async function cargarProgresoGeneral() {
-  // Traer evaluador_id para poder cruzar con id_auth
   const { data: progresos, error } = await _supabase
     .from('progreso_valoraciones').select('evaluador_id, evaluado_id, tipo_evaluado, estado');
   if (error || !progresos) return;
@@ -287,10 +300,9 @@ async function cargarProgresoGeneral() {
 
   const jefes = listaEmpleadosGlobal.filter(u => u.tipo_usuario === 'jefe');
 
-  // Mapas de cruce: numérico → nombre, numérico → uuid, uuid → numérico
-  const nombrePorIdNum  = {}; // id_auto_evaluado (num) → nombre
-  const uuidPorIdNum    = {}; // id_auto_evaluado (num) → id_auth (uuid)
-  const idNumPorUuid    = {}; // id_auth (uuid) → id_auto_evaluado (num)
+  const nombrePorIdNum  = {};
+  const uuidPorIdNum    = {};
+  const idNumPorUuid    = {};
   listaEmpleadosGlobal.forEach(u => {
     if (u.id_auto_evaluado) {
       const k = String(u.id_auto_evaluado);
@@ -302,7 +314,6 @@ async function cargarProgresoGeneral() {
     }
   });
 
-  // Índice de progreso: evaluado_id (num) → [ {evaluador_uuid, tipo, estado} ]
   const progIdx = {};
   progresos.forEach(p => {
     const eid = String(p.evaluado_id);
@@ -310,8 +321,6 @@ async function cargarProgresoGeneral() {
     progIdx[eid].push({ evaluador_uuid: p.evaluador_id, tipo: p.tipo_evaluado, estado: p.estado });
   });
 
-  // Función que dado un id numérico de evaluador y el evaluado_id,
-  // devuelve el estado real cruzando con progreso_valoraciones
   const estadoEvaluador = (evaluadoIdNum, evaluadorIdNum) => {
     const rows = progIdx[String(evaluadoIdNum)] || [];
     const uuid = uuidPorIdNum[String(evaluadorIdNum)];
@@ -326,7 +335,6 @@ async function cargarProgresoGeneral() {
   const filas = jefes.map(emp => {
     const eid = String(emp.id_auto_evaluado);
 
-    // --- Jefe ---
     let jDone = 0, jProg = 0;
     const infoJefe = [];
     if (emp.id_jefe_directo) {
@@ -339,7 +347,6 @@ async function cargarProgresoGeneral() {
       });
     }
 
-    // --- Pares ---
     let pDone = 0, pProg = 0;
     const paresFaltan = [];
     PAR_COLS.filter(c => emp[c]).forEach(c => {
@@ -352,7 +359,6 @@ async function cargarProgresoGeneral() {
       });
     });
 
-    // --- Liderados ---
     let lDone = 0, lProg = 0;
     const lidsFaltan = [];
     LID_COLS.filter(c => emp[c]).forEach(c => {
@@ -365,7 +371,6 @@ async function cargarProgresoGeneral() {
       });
     });
 
-    // --- Auto ---
     const autoRows = progIdx[eid] || [];
     const autoFila = autoRows.find(r => r.evaluador_uuid === emp.id_auth);
     const aDone = autoFila && autoFila.estado === 'done' ? 1 : 0;
@@ -483,13 +488,13 @@ async function generarReporte() {
   if (!evaluadoId) return alert('Selecciona un líder');
 
   const select = document.getElementById('user-select');
-  const nombreEvaluado = select.options[select.selectedIndex].text;
+  const nombre = select.options[select.selectedIndex].text;
 
   const { data, error } = await _supabase.from('progreso_valoraciones')
     .select('*').eq('evaluado_id', evaluadoId).eq('estado', 'done');
   if (error) return alert('Error al cargar datos');
 
-  mostrarVistaReporte(nombreEvaluado);
+  mostrarVistaReporte(nombre);
 
   const scores = procesarDatosPuntuacion(data);
   dibujarTabla(scores.scores, scores.tieneLiderados);
@@ -585,13 +590,18 @@ function dibujarTabla(scores, tieneLiderados) {
 
 function dibujarComentarios(dataProgresos) {
   const comentarios = [];
+  datosComentariosActual = [];
   dataProgresos.forEach(row => {
     const qs = filtrarPreguntasPorRol(row.tipo_evaluado);
     Object.keys(row.respuestas || {}).forEach(idx => {
       const r = row.respuestas[idx];
       if (r && r.comment && r.comment.trim()) {
         const p = qs[parseInt(idx)];
-        if (p) comentarios.push({ rol: row.tipo_evaluado, comp: p.c, pregunta: p.q, score: r.score, comment: r.comment.trim() });
+        if (p) {
+          const item = { rol: row.tipo_evaluado, comp: p.c, pregunta: p.q, score: r.score, comment: r.comment.trim() };
+          comentarios.push(item);
+          datosComentariosActual.push(item);
+        }
       }
     });
   });
@@ -633,6 +643,20 @@ function dibujarFeedforward(dataProgresos) {
   const seccion = document.getElementById('feedforward-section');
   const container = document.getElementById('feedforward-container');
   const filas = dataProgresos.filter(r => r.feedforward && (r.feedforward.ff1 || r.feedforward.ff2));
+  
+  // Guardar datos para descarga en Excel
+  datosFeedforwardActual = [];
+  filas.forEach(row => {
+    const ff = row.feedforward || {};
+    const ff1 = (ff.ff1 || '').trim();
+    const ff2 = (ff.ff2 || '').trim();
+    datosFeedforwardActual.push({
+      rol: row.tipo_evaluado,
+      feedforward_positivo: ff1,
+      feedforward_desarrollo: ff2
+    });
+  });
+  
   if (!filas.length) {
     seccion.style.display = 'block';
     container.innerHTML = '<p id="no-data-msg">No hay feedforward en estas valoraciones.</p>';
@@ -664,13 +688,304 @@ function dibujarFeedforward(dataProgresos) {
 
 // ── DESCARGAR IMAGEN ──────────────────────────────────────────────────────────
 function descargarImagen() {
-  const nombreEvaluado = document.getElementById('report-title').textContent.replace('Reporte de ','');
   html2canvas(document.getElementById('table-container'), { backgroundColor:'#ffffff', scale:2 }).then(canvas => {
     const link = document.createElement('a');
-    link.download = `Resultados_360_${nombreEvaluado.replace(/\s+/g,'_')}.png`;
+    link.download = `Resultados_360_${nombreEvaluadoActual.replace(/\s+/g,'_')}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
   });
+}
+
+// ── DESCARGAR COMENTARIOS EN EXCEL ────────────────────────────────────────────
+async function descargarComentariosExcel() {
+  // Permitir descarga si hay comentarios O feedforward
+  if ((!datosComentariosActual || datosComentariosActual.length === 0) && 
+      (!datosFeedforwardActual || datosFeedforwardActual.length === 0)) {
+    return alert('No hay comentarios ni feedforward para descargar.');
+  }
+
+  // Usar Python via servidor para crear el Excel con formato
+  const datosParaEnviar = {
+    evaluado: nombreEvaluadoActual,
+    comentarios: datosComentariosActual,
+    feedforward: datosFeedforwardActual,
+    competencias: COMPETENCIAS
+  };
+
+  // Crear el archivo Excel usando JavaScript y XLSX con estilos
+  crearExcelFormateado(datosParaEnviar);
+}
+
+async function crearExcelFormateado(datos) {
+  // Crear un nuevo libro con ExcelJS
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet("Comentarios y Feedforward");
+
+  // Establecer dimensiones de columnas
+  worksheet.columns = [
+    { width: 37.67 },  // Columna A
+    { width: 30.83 },  // Columna B
+    { width: 15.83 },  // Columna C
+    { width: 40.83 },  // Columna D
+    { width: 8.83 },   // Columna E
+    { width: 50.83 }   // Columna F
+  ];
+
+  // Mapa de colores por competencia
+  const coloresCompetencia = {
+    'V': 'FFE4DFEC',  // V · Valores
+    'I': 'FFCCC0DA',  // I · Inspiración
+    'T': 'FFB1A0C7',  // T · Transformación
+    'A': 'FFC5D9F1',  // A · Asertividad
+    'L': 'FFB8CCE4',  // L · Logro
+    'E': 'FF8DB4E2',  // E · Empoderamiento
+    'S': 'FF538DD5'   // S · Sistémico
+  };
+
+  // Estilos para encabezado
+  const estiloEncabezado = {
+    fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF002060' } },
+    font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 14 },
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
+  };
+
+  // Estilo para datos normales (sin bordes)
+  const estiloDatos = {
+    alignment: { horizontal: 'left', vertical: 'top', wrapText: true },
+    font: { size: 12 }
+  };
+
+  let rowNum = 1;
+
+  // ═══════════════════════════════════════════════════════════════
+  // SECCIÓN 1: ENCABEZADOS
+  // ═══════════════════════════════════════════════════════════════
+  const headerRow = worksheet.addRow(["EVALUADO", "COMPETENCIA", "ROL", "PREGUNTA", "SCORE", "COMENTARIO"]);
+  headerRow.eachCell((cell) => {
+    cell.style = estiloEncabezado;
+  });
+  headerRow.height = 21;
+  rowNum++;
+
+  // Fila 2: Información del evaluado
+  const infoRow = worksheet.addRow([datos.evaluado, "COMENTARIOS - REPORTE 360°", "", "", "", ""]);
+  
+  // Fusionar columnas B a F en la fila de información
+  worksheet.mergeCells(`B${rowNum}:F${rowNum}`);
+  
+  infoRow.eachCell((cell) => {
+    cell.style = {
+      font: { bold: true, size: 14, color: { argb: 'FFFFFFFF' } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF002060' } }
+    };
+  });
+  infoRow.height = 21;
+  rowNum++;
+
+  // Fila en blanco
+  worksheet.addRow([]);
+  rowNum++;
+
+  // Agrupar comentarios por competencia
+  const porComp = {};
+  COMPETENCIAS.forEach(c => { porComp[c.id] = []; });
+  datos.comentarios.forEach(c => {
+    if(porComp[c.comp]) porComp[c.comp].push(c);
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // SECCIÓN 2: COMENTARIOS POR COMPETENCIA (COMPETENCIA EN COLUMNA B)
+  // ═══════════════════════════════════════════════════════════════
+  let hayComentarios = false;
+  COMPETENCIAS.forEach(comp => {
+    const items = porComp[comp.id];
+    if (!items.length) return;
+
+    hayComentarios = true;
+    const startRow = rowNum;
+
+    // Agregar filas de comentarios
+    items.forEach((item, idx) => {
+      const dataRow = worksheet.addRow([
+        "",
+        "",
+        item.rol,
+        item.pregunta,
+        item.score === 'na' ? 'N/A' : item.score,
+        item.comment
+      ]);
+      dataRow.eachCell((cell) => {
+        cell.style = estiloDatos;
+      });
+      dataRow.height = 87;
+      rowNum++;
+    });
+
+    // Fusionar celda de competencia en columna B (desde startRow hasta rowNum-1)
+    const mergeRange = `B${startRow}:B${rowNum - 1}`;
+    worksheet.mergeCells(mergeRange);
+
+    // Aplicar estilo a la celda fusionada
+    const mergedCell = worksheet.getCell(`B${startRow}`);
+    mergedCell.value = comp.name;
+    mergedCell.style = {
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: coloresCompetencia[comp.id] } },
+      font: { bold: true, size: 18, color: { argb: 'FF000000' } },
+      alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
+    };
+
+    // Fila en blanco
+    worksheet.addRow([]);
+    rowNum++;
+  });
+
+  // Si no hay comentarios, mostrar mensaje
+  if (!hayComentarios && (!datos.comentarios || datos.comentarios.length === 0)) {
+    const noComRow = worksheet.addRow(["", "", "", "", "", "No hay comentarios disponibles"]);
+    noComRow.eachCell((cell) => {
+      cell.style = {
+        ...estiloDatos,
+        alignment: { horizontal: 'center', vertical: 'center' },
+        font: { size: 12, italic: true, color: { argb: 'FF999999' } }
+      };
+    });
+    noComRow.height = 87;
+    rowNum++;
+    worksheet.addRow([]);
+    rowNum++;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // SECCIÓN 3: FEEDFORWARD
+  // ═══════════════════════════════════════════════════════════════
+  if (datos.feedforward && datos.feedforward.length > 0) {
+    // Líneas en blanco
+    worksheet.addRow([]);
+    worksheet.addRow([]);
+    rowNum += 2;
+
+    // Encabezado de feedforward
+    const ffHeaderRow = worksheet.addRow([datos.evaluado, "FEEDFORWARD - REPORTE 360°", "", "", "", ""]);
+    
+    // Fusionar columnas B a F en la fila de feedforward
+    worksheet.mergeCells(`B${rowNum}:F${rowNum}`);
+    
+    ffHeaderRow.eachCell((cell) => {
+      cell.style = {
+        font: { bold: true, size: 14, color: { argb: 'FFFFFFFF' } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF002060' } }
+      };
+    });
+    ffHeaderRow.height = 21;
+    rowNum++;
+
+    worksheet.addRow([]);
+    rowNum++;
+
+    // Agregar feedforward
+    datos.feedforward.forEach((ff, index) => {
+      const startRowFF = rowNum;
+
+      // Feedforward positivo
+      const posRow = worksheet.addRow([
+        "",
+        "",
+        "Positivo",
+        "⭐ Qué sigue haciendo",
+        "",
+        ff.feedforward_positivo || "(Sin respuesta)"
+      ]);
+      posRow.eachCell((cell) => {
+        cell.style = estiloDatos;
+      });
+      posRow.getCell(2).style = {
+        ...estiloDatos,
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEBF1DE' } }
+      };
+      posRow.getCell(3).style = {
+        ...estiloDatos,
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEBF1DE' } }
+      };
+      posRow.height = 87;
+      rowNum++;
+
+      // Feedforward de desarrollo
+      const devRow = worksheet.addRow([
+        "",
+        "",
+        "Desarrollo",
+        "↗ Qué cambiaría",
+        "",
+        ff.feedforward_desarrollo || "(Sin respuesta)"
+      ]);
+      devRow.eachCell((cell) => {
+        cell.style = estiloDatos;
+      });
+      devRow.getCell(2).style = {
+        ...estiloDatos,
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2DCDB' } }
+      };
+      devRow.getCell(3).style = {
+        ...estiloDatos,
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2DCDB' } }
+      };
+      devRow.height = 87;
+      rowNum++;
+
+      // Fusionar celda de evaluador en columna B (solo para las 2 filas)
+      const mergeRangeFF = `B${startRowFF}:B${rowNum - 1}`;
+      worksheet.mergeCells(mergeRangeFF);
+
+      const mergedCellFF = worksheet.getCell(`B${startRowFF}`);
+      mergedCellFF.value = `Evaluador ${index + 1}\n(${ff.rol})`;
+      mergedCellFF.style = {
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } },
+        font: { bold: true, size: 18, color: { argb: 'FF000000' } },
+        alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
+      };
+
+      // Fila en blanco
+      worksheet.addRow([]);
+      rowNum++;
+    });
+  } else {
+    // Si no hay feedforward, mostrar mensaje
+    worksheet.addRow([]);
+    worksheet.addRow([]);
+    rowNum += 2;
+
+    const noFFRow = worksheet.addRow([datos.evaluado, "FEEDFORWARD - REPORTE 360°", "", "", "", ""]);
+    noFFRow.eachCell((cell) => {
+      cell.style = {
+        font: { bold: true, size: 14, color: { argb: 'FFFFFFFF' } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF002060' } }
+      };
+    });
+    noFFRow.height = 21;
+    rowNum++;
+
+    worksheet.addRow([]);
+    rowNum++;
+
+    const noFFMsgRow = worksheet.addRow(["", "", "", "", "", "No hay feedforward disponible"]);
+    noFFMsgRow.eachCell((cell) => {
+      cell.style = {
+        ...estiloDatos,
+        alignment: { horizontal: 'center', vertical: 'center' },
+        font: { size: 12, italic: true, color: { argb: 'FF999999' } }
+      };
+    });
+    noFFMsgRow.height = 87;
+    rowNum++;
+  }
+
+  // Descargar el archivo
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  saveAs(blob, `Comentarios_Feedforward_${nombreEvaluadoActual.replace(/\s+/g,'_')}.xlsx`);
 }
 
 // ── EXPORTAR EXCEL (TODOS) ────────────────────────────────────────────────────
@@ -688,7 +1003,7 @@ async function exportarExcelTodos() {
     let sumCol={Auto:0,Jefe:0,Par:0,Liderado:0,Final:0}, countCol={Auto:0,Jefe:0,Par:0,Liderado:0,Final:0};
     COMPETENCIAS.forEach(comp => {
       const avgA=calcPromedio(scores.Auto[comp.id]), avgJ=calcPromedio(scores.Jefe[comp.id]);
-      const avgP=calcPromedio(scores.Par[comp.id]),  avgL=calcPromedio(scores.Liderado[comp.id]);
+      const avgP=calcPromedio(scores.Par[comp.id]), avgL=calcPromedio(scores.Liderado[comp.id]);
       let w = PESOS[comp.id];
       if (comp.id==='E') w = tieneLiderados ? PESOS.E_Jerarquico : PESOS.E_Transversal;
       const fs = calcularPonderado(avgJ,avgP,avgL,avgA,w);
@@ -699,26 +1014,24 @@ async function exportarExcelTodos() {
       if(avgP!==null){sumCol.Par+=avgP;countCol.Par++;}
       if(avgL!==null){sumCol.Liderado+=avgL;countCol.Liderado++;}
       if(fs!==null){sumCol.Final+=fs;countCol.Final++;}
-      excelData.push({"ID_Evaluado":evalId,"Evaluado":nombre,"Cargo":emp.cargo_evaluado||'-',"Tribu":emp.tribu_evaluado||'-',
-        "Competencia Vital":comp.name,
+      excelData.push({"ID_Evaluado":evalId,"Evaluado":nombre,"Competencia":comp.name,
         "Auto":avgA!==null?Number(avgA.toFixed(2)):null,"Jefe":avgJ!==null?Number(avgJ.toFixed(2)):null,
         "Pares":avgP!==null?Number(avgP.toFixed(2)):null,"Liderados":avgL!==null?Number(avgL.toFixed(2)):null,
-        "Nota Final (Ponderada)":fs!==null?Number(fs.toFixed(2)):null,"Brecha Máxima":brecha!==null?Number(brecha.toFixed(2)):null});
+        "Nota Final":fs!==null?Number(fs.toFixed(2)):null,"Brecha Máxima":brecha!==null?Number(brecha.toFixed(2)):null});
     });
-    excelData.push({"ID_Evaluado":evalId,"Evaluado":nombre,"Cargo":emp.cargo_evaluado||'-',"Tribu":emp.tribu_evaluado||'-',
-      "Competencia Vital":"PROMEDIO PONDERADO",
+    excelData.push({"ID_Evaluado":evalId,"Evaluado":nombre,"Competencia":"PROMEDIO PONDERADO",
       "Auto":countCol.Auto>0?Number((sumCol.Auto/countCol.Auto).toFixed(2)):null,
       "Jefe":countCol.Jefe>0?Number((sumCol.Jefe/countCol.Jefe).toFixed(2)):null,
       "Pares":countCol.Par>0?Number((sumCol.Par/countCol.Par).toFixed(2)):null,
       "Liderados":countCol.Liderado>0?Number((sumCol.Liderado/countCol.Liderado).toFixed(2)):null,
-      "Nota Final (Ponderada)":countCol.Final>0?Number((sumCol.Final/countCol.Final).toFixed(2)):null,"Brecha Máxima":null});
+      "Nota Final":countCol.Final>0?Number((sumCol.Final/countCol.Final).toFixed(2)):null,"Brecha Máxima":null});
     excelData.push({});
   });
   if (!excelData.length) return alert('No hay evaluaciones finalizadas para exportar.');
   const ws = XLSX.utils.json_to_sheet(excelData);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Base General 360');
-  XLSX.writeFile(wb, 'Reporte_General_Lideres_Vitales.xlsx');
+  XLSX.utils.book_append_sheet(wb, ws, 'Resultados 360');
+  XLSX.writeFile(wb, 'Reporte_General_360_Vitales.xlsx');
 }
 </script>
 </body>
