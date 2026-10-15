@@ -337,15 +337,17 @@ async function cargarProgresoGeneral() {
 
     let jDone = 0, jProg = 0;
     const infoJefe = [];
-    if (emp.id_jefe_directo) {
-      const st = estadoEvaluador(eid, emp.id_jefe_directo);
+    const jefesEmp = [[emp.id_jefe_directo, emp.jefe_directo], [emp.id_jefe_directo_2, emp.jefe_directo_2]]
+      .filter(([id]) => id && String(id) !== eid);
+    jefesEmp.forEach(([idJefe, nombreJefe]) => {
+      const st = estadoEvaluador(eid, idJefe);
       if (st === 'done') jDone++;
       else if (st === 'inprog') jProg++;
       if (st !== 'done') infoJefe.push({
-        nombre: nombrePorIdNum[String(emp.id_jefe_directo)] || emp.jefe_directo || String(emp.id_jefe_directo),
+        nombre: nombrePorIdNum[String(idJefe)] || nombreJefe || String(idJefe),
         estado: st === 'inprog' ? 'En progreso' : 'Pendiente'
       });
-    }
+    });
 
     let pDone = 0, pProg = 0;
     const paresFaltan = [];
@@ -386,7 +388,7 @@ async function cargarProgresoGeneral() {
 
     const pares = PAR_COLS.filter(c => emp[c]).length;
     const lids  = LID_COLS.filter(c => emp[c]).length;
-    const tieneJefe = emp.id_jefe_directo ? 1 : 0;
+    const tieneJefe = jefesEmp.length;
     const totalEsperado = tieneJefe + pares + lids + 1;
 
     const done   = jDone + pDone + lDone + aDone;
@@ -436,7 +438,7 @@ async function cargarProgresoGeneral() {
 
   let html = `<table class="progress-table"><thead><tr>
     <th>Líder evaluado</th>
-    <th style="text-align:center">Jefe (1)</th>
+    <th style="text-align:center">Jefe(s)</th>
     <th style="text-align:center">Pares</th>
     <th style="text-align:center">Liderados</th>
     <th style="text-align:center">Auto</th>
@@ -568,6 +570,8 @@ function procesarDatosPuntuacion(dataProgresos) {
   const scores = {Jefe:{}, Par:{}, Liderado:{}, Auto:{}};
   COMPETENCIAS.forEach(c => { scores.Jefe[c.id]=[]; scores.Par[c.id]=[]; scores.Liderado[c.id]=[]; scores.Auto[c.id]=[]; });
   let tieneLiderados = false;
+  // Notas de jefe agrupadas por evaluador: si hay dos jefes, la nota Jefe es el promedio de ambos
+  const porJefe = {};
   dataProgresos.forEach(row => {
     const rol = row.tipo_evaluado;
     if (rol === 'Liderado') tieneLiderados = true;
@@ -576,9 +580,18 @@ function procesarDatosPuntuacion(dataProgresos) {
       const nota = row.respuestas[idx].score;
       if (nota && nota !== 'na') {
         const comp = qs[idx] ? qs[idx].c : null;
-        if (comp) scores[rol][comp].push(Number(nota));
+        if (!comp) return;
+        if (rol === 'Jefe') {
+          if (!porJefe[row.evaluador_id]) porJefe[row.evaluador_id] = {};
+          (porJefe[row.evaluador_id][comp] = porJefe[row.evaluador_id][comp] || []).push(Number(nota));
+        } else {
+          scores[rol][comp].push(Number(nota));
+        }
       }
     });
+  });
+  Object.values(porJefe).forEach(notasJefe => {
+    Object.keys(notasJefe).forEach(comp => scores.Jefe[comp].push(calcPromedio(notasJefe[comp])));
   });
   return { scores, tieneLiderados };
 }
